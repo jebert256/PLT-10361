@@ -2,7 +2,7 @@
 (require racket/base)
 
 
-; tat => '(' atom tat tat ')' | '(' ')'
+; dll => '(' integer list list ')' | null
 (define-datatype dll dll?
   [null-val (val (lambda (x) (null? x)))]
   [seq-val (x integer?) (left list?) (right list?)]
