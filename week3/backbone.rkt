@@ -30,8 +30,8 @@
         (not (null? env)) ;;it's not empty
       )
       (and 
-        (list? (car env)) ;;it's a list
-        (null? (car env)) ;;it iss empty
+        (list? (car env)) ;;it contains a list
+        (null? (car env)) ;;the inner list is empty
       ))))
 
 ;has-binding? : Env x Var -> Boolean
