@@ -36,7 +36,23 @@
     
     (expression
      ("let" identifier "=" expression "in" expression)
-     let-exp)   
+     let-exp)
+
+     ;==================
+     ;additional grammer
+     ;==================
+
+    (expression
+      ("equal?" "(" expression "," expression ")")
+      equal?-exp)
+
+    (expression
+      ("less?" "(" expression "," expression ")")
+      less?-exp)
+
+    (expression
+      ("greater?" "(" expression "," expression ")")
+      greater?-exp)
     
     ))
 
