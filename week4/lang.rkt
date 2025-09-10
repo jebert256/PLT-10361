@@ -56,6 +56,10 @@
     (expression
      ("let" (separated-list identifier "=" expression "," ) "in" expression) ;p410
      let-exp)
+
+     (expression
+     ("let*" (separated-list identifier "=" expression "," ) "in" expression) ;p410
+     let-star-exp)
     
     ))
 
