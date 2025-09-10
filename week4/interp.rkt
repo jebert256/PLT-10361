@@ -51,11 +51,6 @@
                     (value-of exp2 env)
                     (value-of exp3 env))))
       
-      (let-exp (var exp1 body)       
-               (let ((val1 (value-of exp1 env)))
-                 (value-of body
-                           (extend-env var val1 env))))
-
       ;=========
       ;additions
       ;=========
@@ -89,6 +84,50 @@
                          (bool-val #t)
                          (bool-val #f)
       ))))))
-      
+
+      (let-exp (idents expresions body)
+        (begin
+        ;(print "start env:")
+        ;(println env)
+        ;(print "mutli-let return:")
+        ;(println (multi-let-env idents (evaluate-all expresions env) env))
+        ;(print "eval-all:")
+        ;(println (evaluate-all expresions env))
+        (value-of body (multi-let-env idents (evaluate-all expresions env) env))
+        )
+      ) 
 )))
 
+(require racket/base)
+
+(define multi-let-env 
+  (lambda (idents vals env) 
+    (cond
+      [(null? idents) env]
+      [else
+      (begin
+        ; (print "vals:")
+        ; (println vals)
+        ; (print "idents:")
+        ; (println idents)
+        ; (print "env:")
+        ; (println  env)
+        (let*
+          ((var (car idents))
+          (val (car vals)))
+        (multi-let-env (cdr idents) (cdr vals) (extend-env var val env)))
+      )
+      ])))
+
+(define evaluate-all
+  (lambda (expressions env)
+    (cond
+      [(null? expressions) '()]
+      [else
+      (begin
+      ;(print "eval-all exprs: ")
+      ;(println expressions)
+        (cons (value-of (car expressions) env) (evaluate-all (cdr expressions) env))
+      )
+      ]
+    )))

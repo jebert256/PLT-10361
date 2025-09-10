@@ -58,3 +58,27 @@
   (greater-typecheck  "-(greater?(1,0),1)" error)
   (if-greater "if greater?(-(11,1),0) then 3 else 4" 3)
 )
+
+(check-run
+;need to make sure that we are applying after evealuting all assignemnts
+
+  ;; simple let
+  (simple-let-x "let x=3,y=4 in x" 3)
+  (simple-let-y "let x=3,y=4 in y" 4)
+ 
+  ;; make sure the body and rhs get evaluated
+  (eval-let-body "let x=3,y=5 in -(x,y)" -2)
+  (eval-let-rhs "let x=-(4,1),y=0,z=1 in -(x,z)" 2)
+ 
+  ;; check nested let and shadowing
+  (simple-nested-let "let x = 3 in let y = 4 in -(x,y)" -1)
+  (check-shadowing-in-body "let x = 3 in let x = 4 in x" 4)
+  (check-shadowing-in-rhs "let x = 3 in let x = -(x,1) in x" 2)
+
+  ;check that expresions are evaluated before env is added to
+  ;remember that the default env is
+  ;((i #(struct:num-val 1)) (v #(struct:num-val 5)) (x #(struct:num-val 10)))
+  ;so it would be a shame if you used x and then spent a while figuring it out
+  (no-val-in-env "let z=1,y=z in y" error)
+  
+)

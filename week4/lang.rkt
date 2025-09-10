@@ -20,6 +20,7 @@
   '((program (expression) a-program)
     
     (expression (number) const-exp)
+    
     (expression
      ("-" "(" expression "," expression ")")
      diff-exp)
@@ -34,9 +35,7 @@
     
     (expression (identifier) var-exp)
     
-    (expression
-     ("let" identifier "=" expression "in" expression)
-     let-exp)
+    
 
      ;==================
      ;additional grammer
@@ -53,6 +52,10 @@
     (expression
       ("greater?" "(" expression "," expression ")")
       greater?-exp)
+
+    (expression
+     ("let" (separated-list identifier "=" expression "," ) "in" expression) ;p410
+     let-exp)
     
     ))
 
