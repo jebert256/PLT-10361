@@ -86,7 +86,7 @@
 
 ;Question-3
 (check-run
-;need to make sure that we are applying after evealuting all assignemnts
+;need to make sure that we are applying as we go, build the env from left to right
 
   ;; simple let
   (simple-let-x "let* x=3,y=4 in x" 3)
