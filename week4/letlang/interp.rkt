@@ -55,6 +55,10 @@
       ;additions
       ;=========
 
+      ;(value-of exp1 exp2 p) = val1
+      ;-----------------------------------
+      ;(bool-val #t) if (expval1) == (expval2)
+      ;(bool-val #f) if (expval1) != (expval2)
       (equal?-exp (exp1 exp2)
         (let ((val1 (value-of exp1 env)))
           (let ((num1 (expval->num val1)))
@@ -65,6 +69,11 @@
                          (bool-val #f)
       ))))))
 
+
+      ;(value-of exp1 exp2 p) = val1
+      ;-----------------------------------
+      ;(bool-val #t) if (expval1) < (expval2)
+      ;(bool-val #f) if (expval1) >= (expval2)
       (less?-exp (exp1 exp2)
         (let ((val1 (value-of exp1 env)))
           (let ((num1 (expval->num val1)))
@@ -75,6 +84,10 @@
                          (bool-val #f)
       ))))))
 
+      ;(value-of exp1 exp2 p) = val1
+      ;-----------------------------------
+      ;(bool-val #t) if (expval1) > (expval2)
+      ;(bool-val #f) if (expval1) <= (expval2)
       (greater?-exp (exp1 exp2)
         (let ((val1 (value-of exp1 env)))
           (let ((num1 (expval->num val1)))
@@ -85,15 +98,29 @@
                          (bool-val #f)
       ))))))
 
-      (let-exp (idents expresions body)
-        (value-of body (pre-eval-env-update idents (evaluate-all expresions env) env))
+      ;(value-of exp* exp* p) = val1
+      ;-----------------------------------
+      ;(value-of (let-exp idents* exp* body) p) =
+      ;  (value-of body (pre-eval-env-updates idents* vals* p)) 
+      (let-exp (idents exps body)
+        (value-of body (pre-eval-env-update idents (evaluate-all exps env) env))
       )
 
-      (let-star-exp (idents expresions body)
-        (value-of body (simple-env-update idents expresions env))
+
+      ;(value-of exp* exp* p) = val1
+      ;-----------------------------------
+      ;(value-of (let-star-exp idents* exp* body) p) =
+      ;  (value-of body [var_n=val_n]p)) 
+      (let-star-exp (idents exps body)
+        (value-of body (simple-env-update idents exps env))
       )
 )))
 
+;(pre-eval-env-updates idents* vals* p)
+;------------------------------------
+;([var_n=val_n]p) = p
+
+;pre-eval-env-update : var * Exp * Env-> Env
 (define pre-eval-env-update 
   (lambda (idents vals env) 
     (cond
@@ -105,6 +132,12 @@
         (pre-eval-env-update (cdr idents) (cdr vals) (extend-env var val env)))
       ])))
 
+;(simple-env-update idents* exps* p)
+;------------------------------------
+;(value-of exp_n p) =
+; [var_n=val_n]p
+
+;simple-env-update : var * Exp * Env-> Env
 (define simple-env-update
   (lambda (idents expressions env) 
     (cond
@@ -115,7 +148,11 @@
           (val (value-of (car expressions) env)))
         (simple-env-update (cdr idents) (cdr expressions) (extend-env var val env)))
       ])))
+;(evaluate-all exp* p)
+;------------------------------------
+;(value-of exp* p) = '(val)
 
+;evaluate-all : '(Exp) * Env-> '(ExpVal)
 (define evaluate-all
   (lambda (expressions env)
     (cond

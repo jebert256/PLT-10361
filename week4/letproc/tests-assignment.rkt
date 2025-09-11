@@ -51,8 +51,3 @@
                       let a = 5 in
                         -(a, (p 2))" 8) ;-(5, -(2,5)) -> -(5, -3) -> 8
 )
-
-(require racket/base)
-(println (format "================================~%
-remember to REMOVE your commented out pritn statments from interp~%
-==================================="))

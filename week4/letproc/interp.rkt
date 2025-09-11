@@ -55,9 +55,17 @@
             (value-of body
               (extend-env var val1 env))))
         
+        ;(value-of exp1 p) = val1
+        ;-----------------------------------
+        ;value-of (proc-exp var body) p =
+        ;  proc-val (procedure var body)
         (proc-exp (var body)
           (proc-val (procedure var body)))
 
+        ;(value-of exp1 p) = val1
+        ;-----------------------------------
+        ;value-of (call-exp rator rand) p =
+        ;  appl-proc (proce arg ) p
         (call-exp (rator rand)
           (let ((proc (expval->proc (value-of rator env)))
                 (arg (value-of rand env)))
@@ -65,25 +73,26 @@
 
         )))
 
-(require racket/base)
+
+  ;(procedure var body) = proc
+  ;-----------------------------------
+  ;lambda (val p) =
+  ;  value-of body [var=val]p
 
   ;; procedure : Var * Exp  -> Proc
   ;; Page: 79
   (define procedure
     (lambda (var body)
       (lambda (val env)
-      ; (begin
-      ;   (println (format "proc.var: ~a" var))
-      ;   (println (format "proc.body: ~a" body))
         (value-of body (extend-env var val env)))))
-      ;)
   
+
+  ;(apply-procedure proc val p) = proc
+  ;-----------------------------------
+  ;(proc (val p) = val
+
   ;; apply-procedure : Proc * ExpVal * Env-> ExpVal
   ;; Page: 79
   (define apply-procedure
     (lambda (proc val env)
-    ; (begin
-    ;     (println (format "apply.proc ~a" proc))
-    ;     (println (format "apply.val: ~a" val))
       (proc val env)))
-  ; )
