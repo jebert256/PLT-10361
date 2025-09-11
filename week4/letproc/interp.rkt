@@ -71,16 +71,25 @@
 
         )))
 
+(require racket/base)
 
   ;; procedure : Var * Exp * Env -> Proc
   ;; Page: 79
   (define procedure
     (lambda (var body env)
       (lambda (val)
+      (begin
+        (println (format "proc.var: ~a" var))
+        (println (format "proc.body: ~a" body))
         (value-of body (extend-env var val env)))))
+      )
   
   ;; apply-procedure : Proc * ExpVal -> ExpVal
   ;; Page: 79
   (define apply-procedure
     (lambda (proc val)
+    (begin
+        (println (format "apply.proc ~a" proc))
+        (println (format "apply.val: ~a" val))
       (proc val)))
+  )

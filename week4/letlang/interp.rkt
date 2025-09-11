@@ -86,15 +86,7 @@
       ))))))
 
       (let-exp (idents expresions body)
-        (begin
-        ;(print "start env:")
-        ;(println env)
-        ;(print "mutli-let return:")
-        ;(println (multi-let-env idents (evaluate-all expresions env) env))
-        ;(print "eval-all:")
-        ;(println (evaluate-all expresions env))
         (value-of body (pre-eval-env-update idents (evaluate-all expresions env) env))
-        )
       )
 
       (let-star-exp (idents expresions body)
@@ -102,25 +94,15 @@
       )
 )))
 
-(require racket/base)
-
 (define pre-eval-env-update 
   (lambda (idents vals env) 
     (cond
       [(null? idents) env]
       [else
-      (begin
-        ; (print "vals:")
-        ; (println vals)
-        ; (print "idents:")
-        ; (println idents)
-        ; (print "env:")
-        ; (println  env)
         (let*
           ((var (car idents))
           (val (car vals)))
         (pre-eval-env-update (cdr idents) (cdr vals) (extend-env var val env)))
-      )
       ])))
 
 (define simple-env-update
@@ -128,18 +110,10 @@
     (cond
       [(null? idents) env]
       [else
-      (begin
-        ; (print "vals:")
-        ; (println vals)
-        ; (print "idents:")
-        ; (println idents)
-        ; (print "env:")
-        ; (println  env)
         (let*
           ((var (car idents))
           (val (value-of (car expressions) env)))
         (simple-env-update (cdr idents) (cdr expressions) (extend-env var val env)))
-      )
       ])))
 
 (define evaluate-all
@@ -147,11 +121,7 @@
     (cond
       [(null? expressions) '()]
       [else
-      (begin
-      ;(print "eval-all exprs: ")
-      ;(println expressions)
         (cons (value-of (car expressions) env) (evaluate-all (cdr expressions) env))
-      )
       ]
     )))
 
