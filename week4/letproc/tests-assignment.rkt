@@ -42,12 +42,17 @@
   (proc-not-simple "let x=1 in let y=2 in let p = proc (val) -(x, -(y, val)) in (p 2)" 1)
 
   (simplified-book-sample  "let a=5 in
-                              let p = proc (x) zero?(x) in
+                              let p = proc (x) -(a,0) in
                                 let a = 0 in
-                                  (p a)" #t)
+                                  (p -1)" 0)
 
   (book-sample "let a = 3 in
                   let p = proc (x) -(x,a) in
                       let a = 5 in
-                        -(a, (p 2))" 6)
+                        -(a, (p 2))" 8) ;-(5, -(2,5)) -> -(5, -3) -> 8
 )
+
+(require racket/base)
+(println (format "================================~%
+remember to REMOVE your commented out pritn statments from interp~%
+==================================="))
