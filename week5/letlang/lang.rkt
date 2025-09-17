@@ -34,12 +34,6 @@
      if-exp)
     
     (expression (identifier) var-exp)
-    
-    
-
-     ;==================
-     ;additional grammer
-     ;==================
 
     (expression
       ("equal?" "(" expression "," expression ")")
@@ -54,15 +48,26 @@
       greater?-exp)
 
     (expression
-     ("let" (separated-list identifier "=" expression "," ) "in" expression) ;p410
-     let-exp)
+      ("let" (separated-list identifier "=" expression "," ) "in" expression)
+      let-exp)
 
-     (expression
-     ("let*" (separated-list identifier "=" expression "," ) "in" expression) ;p410
-     let-star-exp)
-    
-    ))
+    (expression
+      ("let*" (separated-list identifier "=" expression "," ) "in" expression)
+      let-star-exp)
 
+
+     ;==================
+     ;additional grammer
+     ;==================
+
+    (expression
+      ("begin" (separated-list expression ";" ) "end")
+      begin-exp)
+
+    (expression
+      ("print" "(" expression ")")
+    print-exp)
+))
 ;;;;;;;;;;;;;;;; sllgen boilerplate ;;;;;;;;;;;;;;;;
 
 (sllgen:make-define-datatypes the-lexical-spec the-grammar)

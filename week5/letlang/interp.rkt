@@ -7,6 +7,7 @@
 (require "lang.rkt")
 (require "data-structures.rkt")
 (require "environments.rkt")
+(require racket/base)
 
 (provide value-of-program value-of)
 
@@ -51,14 +52,6 @@
                     (value-of exp2 env)
                     (value-of exp3 env))))
       
-      ;=========
-      ;additions
-      ;=========
-
-      ;(value-of exp1 exp2 p) = val1
-      ;-----------------------------------
-      ;(bool-val #t) if (expval1) == (expval2)
-      ;(bool-val #f) if (expval1) != (expval2)
       (equal?-exp (exp1 exp2)
         (let ((val1 (value-of exp1 env)))
           (let ((num1 (expval->num val1)))
@@ -70,10 +63,6 @@
       ))))))
 
 
-      ;(value-of exp1 exp2 p) = val1
-      ;-----------------------------------
-      ;(bool-val #t) if (expval1) < (expval2)
-      ;(bool-val #f) if (expval1) >= (expval2)
       (less?-exp (exp1 exp2)
         (let ((val1 (value-of exp1 env)))
           (let ((num1 (expval->num val1)))
@@ -84,10 +73,6 @@
                          (bool-val #f)
       ))))))
 
-      ;(value-of exp1 exp2 p) = val1
-      ;-----------------------------------
-      ;(bool-val #t) if (expval1) > (expval2)
-      ;(bool-val #f) if (expval1) <= (expval2)
       (greater?-exp (exp1 exp2)
         (let ((val1 (value-of exp1 env)))
           (let ((num1 (expval->num val1)))
@@ -98,27 +83,32 @@
                          (bool-val #f)
       ))))))
 
-      ;(value-of exp* exp* p) = val1
-      ;-----------------------------------
-      ;(value-of (let-exp idents* exp* body) p) =
-      ;  (value-of body (pre-eval-env-updates idents* vals* p)) 
       (let-exp (idents exps body)
         (value-of body (pre-eval-env-update idents (evaluate-all exps env) env))
       )
 
-
-      ;(value-of exp* exp* p) = val1
-      ;-----------------------------------
-      ;(value-of (let-star-exp idents* exp* body) p) =
-      ;  (value-of body [var_n=val_n]p)) 
       (let-star-exp (idents exps body)
         (value-of body (simple-env-update idents exps env))
       )
+
+      ;=========
+      ;additions
+      ;=========
+
+      (begin-exp (exps)
+        (begin 
+          ;(displayln exps)
+        (evaluate-begin exps env)
+        )
+      )
+
+      (print-exp (exp1)
+        (begin
+          (println (value-of exp1 env))
+          (num-val 0)
+        ))
 )))
 
-;(pre-eval-env-updates idents* vals* p)
-;------------------------------------
-;([var_n=val_n]p) = p
 
 ;pre-eval-env-update : var * Exp * Env-> Env
 (define pre-eval-env-update 
@@ -132,11 +122,6 @@
         (pre-eval-env-update (cdr idents) (cdr vals) (extend-env var val env)))
       ])))
 
-;(simple-env-update idents* exps* p)
-;------------------------------------
-;(value-of exp_n p) =
-; [var_n=val_n]p
-
 ;simple-env-update : var * Exp * Env-> Env
 (define simple-env-update
   (lambda (idents expressions env) 
@@ -148,9 +133,6 @@
           (val (value-of (car expressions) env)))
         (simple-env-update (cdr idents) (cdr expressions) (extend-env var val env)))
       ])))
-;(evaluate-all exp* p)
-;------------------------------------
-;(value-of exp* p) = '(val)
 
 ;evaluate-all : '(Exp) * Env-> '(ExpVal)
 (define evaluate-all
@@ -162,4 +144,29 @@
       ]
     )))
 
+;=========
+;additions
+;=========
+
+(define evaluate-begin
+  (lambda (expressions env)
+    (cond
+      [(null? (cdr expressions)) (value-of (car expressions) env)]
+      [else 
+        (begin
+          (value-of (car expressions) env)
+          (evaluate-begin (cdr expressions) env )
+        )
+      ]
+    )))
+(define evaluate-begin2
+  (lambda (expressions env)
+    (cond
+      [(null? (cdr expressions))
+       (value-of (car expressions) env)] ; final value
+      [else
+       (let ([val (value-of (car expressions) env)])
+         ;; If value-of returns an updated env, you need to extract it
+         ;; But if it doesn't, you need to modify value-of to return both value and env
+         (evaluate-begin2 (cdr expressions) env))])))
 
