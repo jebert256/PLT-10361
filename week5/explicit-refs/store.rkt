@@ -1,4 +1,5 @@
 #lang eopl
+(require racket/base)
 
 (provide initialize-store! reference? newref deref setref!
          instrument-newref get-store-as-list)
@@ -17,7 +18,7 @@
 ;; empty-store : () -> Sto
 ;; Page: 111
 (define empty-store
-  (lambda () '()))
+  (lambda () (make-vector 0)))
 
 ;; initialize-store! : () -> Sto
 ;; usage: (initialize-store!) sets the-store to the empty-store
@@ -25,12 +26,6 @@
 (define initialize-store!
   (lambda ()
     (set! the-store (empty-store))))
-
-;; get-store : () -> Sto
-;; Page: 111
-;; This is obsolete.  Replaced by get-store-as-list below
-(define get-store
-  (lambda () the-store))
 
 ;; reference? : SchemeVal -> Bool
 ;; Page: 111
@@ -42,65 +37,51 @@
 ;; Page: 111
 (define newref
   (lambda (val)
-    (let ((next-ref (length the-store)))
-      (set! the-store
-            (append the-store (list val)))
+    (let ((next-ref (vector-length the-store))) ;copy len
+      (let ((new-store (extend-store! the-store next-ref 1))) ;grow store
+        (vector-set! new-store next-ref val) ;set value
+        (set! the-store new-store) ;set value
       (when (instrument-newref)
         (eopl:printf 
          "newref: allocating location ~s with initial contents ~s~%"
-         next-ref val))                     
-      next-ref)))                     
+         next-ref val))
+      next-ref))
+))
 
 ;; deref : Ref -> ExpVal
 ;; Page 111
 (define deref 
   (lambda (ref)
-    (list-ref the-store ref)))
+    (vector-ref the-store ref)))
 
 ;; setref! : Ref * ExpVal -> Unspecified
 ;; Page: 112
 (define setref!                       
   (lambda (ref val)
-    (set! the-store
-          (letrec
-              ((setref-inner
-                ;; returns a list like store1, except that position ref1
-                ;; contains val. 
-                (lambda (store1 ref1)
-                  (cond
-                    ((null? store1)
-                     (report-invalid-reference ref the-store))
-                    ((zero? ref1)
-                     (cons val (cdr store1)))
-                    (else
-                     (cons
-                      (car store1)
-                      (setref-inner
-                       (cdr store1) (- ref1 1))))))))
-            (setref-inner the-store ref)))))
+    (if (< ref (vector-length the-store))
+      (vector-set! the-store ref val)
+      (report-invalid-reference ref the-store))
+))
 
 (define report-invalid-reference
   (lambda (ref the-store)
     (eopl:error 'setref
                 "illegal reference ~s in store ~s"
                 ref the-store)))
+                
+;; extend-store! : vector * int -> vector
+(define extend-store!
+  (lambda (old-store old-size n)
+    (let ((new-store (make-vector (+ old-size n)))) ;grow by n
+        (for ([i (in-range old-size)]) ;copy
+          (vector-set! new-store i (vector-ref old-store i)))
+        new-store)
+))
 
-;; get-store-as-list : () -> Listof(List(Ref,Expval))
-;; Exports the current state of the store as a scheme list.
-;; (get-store-as-list '(foo bar baz)) = ((0 foo)(1 bar) (2 baz))
-;;   where foo, bar, and baz are expvals.
-;; If the store were represented in a different way, this would be
-;; replaced by something cleverer.
-;; Replaces get-store (p. 111)
 (define get-store-as-list
   (lambda ()
-    (letrec
-        ((inner-loop
-          ;; convert sto to list as if its car was location n
-          (lambda (sto n)
-            (if (null? sto)
-                '()
-                (cons
-                 (list n (car sto))
-                 (inner-loop (cdr sto) (+ n 1)))))))
-      (inner-loop the-store 0))))
+    (let ((li '()))
+      (for ([i (in-range the-store)])
+        (cons li ('(i (vector-ref the-store i)))))
+      li)
+))
