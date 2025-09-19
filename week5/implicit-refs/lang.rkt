@@ -37,6 +37,10 @@
     (expression
      ("let" identifier "=" expression "in" expression)
      let-exp)   
+
+    (expression
+     ("letmutable" identifier "=" expression "in" expression)
+     let-mut-exp)   
     
     (expression
      ("proc" "(" identifier ")" expression)

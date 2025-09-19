@@ -2,7 +2,8 @@
 
 (require "data-structures.rkt")
 (require "store.rkt")
-(provide init-env empty-env extend-env apply-env)
+(require racket/base)
+(provide init-env empty-env extend-env-mutable apply-env)
 
 ;;;;;;;;;;;;;;;; initial environment ;;;;;;;;;;;;;;;;
 
@@ -13,11 +14,11 @@
 ;; x is bound to a location containing the expressed value 10.  
 (define init-env 
   (lambda ()
-    (extend-env 
+    (extend-env-mutable 
      'i (newref (num-val 1))
-     (extend-env
+     (extend-env-mutable
       'v (newref (num-val 5))
-      (extend-env
+      (extend-env-mutable
        'x (newref (num-val 10))
        (empty-env))))))
 
@@ -28,13 +29,23 @@
     (cases environment env
       (empty-env ()
                  (eopl:error 'apply-env "No binding for ~s" search-var))
-      (extend-env (bvar bval saved-env)
+      (extend-env-mutable (bvar bval saved-env)
                   (if (eqv? search-var bvar)
                       bval
                       (apply-env saved-env search-var)))
+      (extend-env (bvar val saved-env)
+                (begin
+                ;(printf "apply-env.extend-env {bvar: ~s, val: ~s, search-var: ~s, \n\tsaved-env: ~s}\n"
+                ;  bvar val search-var saved-env)
+                  (if (eqv? search-var bvar)
+                      val
+                      (apply-env saved-env search-var)))
+      )
       (extend-env-rec* (p-names b-vars p-bodies saved-env)
                        (let ((n (location search-var p-names)))
-                         ;; n : (maybe int)
+                         (begin
+                ;(printf "extend-env-rec* {p-names ~s, b-vars ~s, p-bodies ~s, \n\tsaved-env: ~s}\n"
+                ;  p-names b-vars p-bodies saved-env)
                          (if n
                              (newref
                               (proc-val
@@ -42,7 +53,7 @@
                                 (list-ref b-vars n)
                                 (list-ref p-bodies n)
                                 env)))
-                             (apply-env saved-env search-var)))))))
+                             (apply-env saved-env search-var))))))))
 
 ;; location : Sym * Listof(Sym) -> Maybe(Int)
 ;; (location sym syms) returns the location of sym in syms or #f is

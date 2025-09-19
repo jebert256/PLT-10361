@@ -1,7 +1,7 @@
 #lang eopl
 
 (require "lang.rkt")                  ; for expression?
-(require "store.rkt")                 ; for reference?
+
 
 (provide (all-defined-out))           ; too many things to list
 
@@ -20,6 +20,13 @@
   (ref-val
    (ref reference?))
   )
+
+;moved to allow importing structs to store for ref checking
+;; reference? : SchemeVal -> Bool
+;; Page: 111
+(define reference?
+  (lambda (v)
+    (integer? v)))
 
 ;;; extractors:
 
@@ -62,9 +69,13 @@
 
 (define-datatype environment environment?
   (empty-env)
-  (extend-env 
+  (extend-env-mutable 
    (bvar symbol?)
    (bval reference?)                 ; new for implicit-refs
+   (saved-env environment?))
+  (extend-env 
+   (bvar symbol?)
+   (bval expval?)
    (saved-env environment?))
   (extend-env-rec*
    (proc-names (list-of symbol?))
@@ -78,6 +89,11 @@
   (lambda (env)
     (cases environment env
       (empty-env () '())
+      (extend-env-mutable (sym val saved-env)
+                  (cons
+                   (list sym val)              ; val is a denoted value-- a
+                   ; reference. 
+                   (env->list saved-env)))
       (extend-env (sym val saved-env)
                   (cons
                    (list sym val)              ; val is a denoted value-- a

@@ -73,34 +73,37 @@
  (if-eval-test-false-2 "if zero?(-(11,12)) then foo else 4" 4)
  
  ;; simple let
- (simple-let-1 "let x = 3 in x" 3)
+ (simple-let-1 "letmutable x = 3 in x" 3)
+ 
  
  ;; make sure the body and rhs get evaluated
- (eval-let-body "let x = 3 in -(x,1)" 2)
- (eval-let-rhs "let x = -(4,1) in -(x,1)" 2)
+ (eval-let-body "letmutable x = 3 in -(x,1)" 2)
+ (eval-let-rhs "letmutable x = -(4,1) in -(x,1)" 2)
+
  
- ;; check nested let and shadowing
- (simple-nested-let "let x = 3 in let y = 4 in -(x,y)" -1)
- (check-shadowing-in-body "let x = 3 in let x = 4 in x" 4)
- (check-shadowing-in-rhs "let x = 3 in let x = -(x,1) in x" 2)
+;; check nested let and shadowing
+(simple-nested-let "letmutable x = 3 in letmutable y = 4 in -(x,y)" -1)
+(check-shadowing-in-body "letmutable x = 3 in letmutable x = 4 in x" 4)
+(check-shadowing-in-rhs "letmutable x = 3 in letmutable x = -(x,1) in x" 2)
+
  
  ;; simple applications
  (apply-proc-in-rator-pos "(proc(x) -(x,1)  30)" 29)
- (apply-simple-proc "let f = proc (x) -(x,1) in (f 30)" 29)
+ (apply-simple-proc "letmutable f = proc (x) -(x,1) in (f 30)" 29)
  (let-to-proc-1 "(proc(f)(f 30)  proc(x)-(x,1))" 29)
  
  
  (nested-procs "((proc (x) proc (y) -(x,y)  5) 6)" -1)
- (nested-procs2 "let f = proc(x) proc (y) -(x,y) in ((f -(10,5)) 6)"
+ (nested-procs2 "letmutable f = proc(x) proc (y) -(x,y) in ((f -(10,5)) 6)"
                 -1)
  
  (y-combinator-1 "
-let fix =  proc (f)
-            let d = proc (x) proc (z) ((f (x x)) z)
+letmutable fix =  proc (f)
+            letmutable d = proc (x) proc (z) ((f (x x)) z)
             in proc (n) ((f (d d)) n)
-in let
+in letmutable
     t4m = proc (f) proc(x) if zero?(x) then 0 else -((f -(x,1)),-4)
-in let times4 = (fix t4m)
+in letmutable times4 = (fix t4m)
    in (times4 3)" 12)
  
  ;; simple letrecs
@@ -110,14 +113,10 @@ in let times4 = (fix t4m)
   8)
  
  (simple-letrec-3
-  "let m = -5 
+  "letmutable m = -5 
  in letrec f(x) = if zero?(x) then 0 else -((f -(x,1)), m) in (f 4)"
   20)
- 
- ;      (fact-of-6  "letrec
- ;  fact(x) = if zero?(x) then 1 else *(x, (fact sub1(x)))
- ;in (fact 6)" 
- ;                  720)
+
  
  (HO-nested-letrecs
   "letrec even(odd)  = proc(x) if zero?(x) then 1 else (odd -(x,1))
@@ -131,30 +130,30 @@ in let times4 = (fix t4m)
  
  ;; extremely primitive testing for mutable variables
  
- (assignment-test-1 "let x = 17
+ (assignment-test-1 "letmutable x = 17
                           in begin set x = 27; x end"
                     27)
  
  
  (gensym-test
-  "let g = let count = 0 in proc(d) 
-                        let d = set count = -(count,-1)
+  "letmutable g = letmutable count = 0 in proc(d) 
+                        letmutable d = set count = -(count,-1)
                         in count
 in -((g 11), (g 22))"
   -1)
  
  (even-odd-via-set "
-let x = 0
+letmutable x = 0
 in letrec even(d) = if zero?(x) then 1 
-                                  else let d = set x = -(x,1)
+                                  else letmutable d = set x = -(x,1)
                                        in (odd d)
               odd(d)  = if zero?(x) then 0 
-                                  else let d = set x = -(x,1)
+                                  else letmutable d = set x = -(x,1)
                                        in (even d)
-   in let d = set x = 13 in (odd -99)" 1)
+   in letmutable d = set x = 13 in (odd -99)" 1)
  
  (example-for-book-1 "
-let f = proc (x) proc (y) 
+letmutable f = proc (x) proc (y) 
                   begin
                    set x = -(x,-1);
                    -(x,y)
@@ -163,3 +162,4 @@ in ((f 44) 33)"
                      12)
  
  )
+

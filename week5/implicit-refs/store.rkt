@@ -1,5 +1,6 @@
 #lang eopl
 (require racket/base)
+(require "data-structures.rkt")
 
 (provide initialize-store! reference? newref deref setref!
          instrument-newref get-store-as-list)
@@ -30,40 +31,54 @@
   (lambda ()
     (set! the-store (empty-store))))
 
-;; reference? : SchemeVal -> Bool
-;; Page: 111
-(define reference?
-  (lambda (v)
-    (integer? v)))
+
 
 ;; newref : ExpVal -> Ref
 ;; Page: 111
 (define newref
   (lambda (val)
+  (begin
+        ;(printf "newref: ")
     (let ((next-ref (vector-length the-store))) ;copy len
       (let ((new-store (extend-store! the-store next-ref 1))) ;grow store
+        (begin
+        ;(printf "{next-ref: ~s new-store:~s val: ~s}\n" next-ref new-store val)
         (vector-set! new-store next-ref val) ;set value
         (set! the-store new-store) ;set value
+        )
       (when (instrument-newref)
         (eopl:printf 
          "newref: allocating location ~s with initial contents ~s~%"
          next-ref val))
       next-ref))
+  )
 ))
 
 ;; deref : Ref -> ExpVal
 ;; Page 111
 (define deref 
   (lambda (ref)
-    (vector-ref the-store ref)))
+  (begin
+        ;(printf "deref{ref: ~s the-store: ~s} \n" ref the-store)
+    (cond
+      [(expval? ref) ref]
+      [else (vector-ref the-store ref)]
+      
+  ))
+))
 
 ;; setref! : Ref * ExpVal -> Unspecified
 ;; Page: 112
 (define setref!                       
   (lambda (ref val)
-    (if (< ref (vector-length the-store))
-      (vector-set! the-store ref val)
-      (report-invalid-reference ref the-store))
+    (begin
+        ;(printf "setref! {ref: ~s val: ~s}\n" ref val)
+    (cond
+      [(expval? ref) (report-immutable-assignment)]
+      [else (if (< ref (vector-length the-store))
+        (vector-set! the-store ref val)
+        (report-invalid-reference ref the-store))]
+    ))
 ))
 
 (define report-invalid-reference
@@ -71,6 +86,11 @@
     (eopl:error 'setref
                 "illegal reference ~s in store ~s"
                 ref the-store)))
+
+(define report-immutable-assignment
+  (lambda ()
+    (eopl:error 'setref
+                "illegal assignment to immutable reference")))
 
 (define get-store-as-list
   (lambda ()

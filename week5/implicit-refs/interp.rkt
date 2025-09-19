@@ -3,6 +3,7 @@
 ;; interpreter for the IMPLICIT-REFS language
 
 (require "lang.rkt")
+(require racket/base)
 (require "data-structures.rkt")
 (require "environments.rkt")
 (require "store.rkt")
@@ -35,11 +36,19 @@
     (cases expression exp
       
       ;\commentbox{ (value-of (const-exp \n{}) \r) = \n{}}
-      (const-exp (num) (num-val num))
+      (const-exp (num) 
+        (begin
+        ;(printf "Evaluating const-exp: ~s\n" num)
+        (num-val num))
+      )
       
       ;\commentbox{ (value-of (var-exp \x{}) \r) 
       ;              = (deref (apply-env \r \x{}))}
-      (var-exp (var) (deref (apply-env env var)))
+      (var-exp (var) 
+        (begin
+        ;(printf "Evaluating var-exp ~s\n" var)
+        (deref (apply-env env var)))
+        )
       
       ;\commentbox{\diffspec}
       (diff-exp (exp1 exp2)
@@ -65,23 +74,38 @@
                     (value-of exp2 env)
                     (value-of exp3 env))))
       
-      ;\commentbox{\ma{\theletspecsplit}}
       (let-exp (var exp1 body)       
                (let ((v1 (value-of exp1 env)))
+                (begin
+                ;(printf "Evaluating let-exp {var: ~s exp1: ~s body: ~s}\n" var exp1 body)
                  (value-of body
-                           (extend-env var (newref v1) env))))
+                           (extend-env var  v1 env))))
+
+                )
+
+      ;\commentbox{\ma{\theletspecsplit}}
+      (let-mut-exp (var exp1 body)       
+               (let ((v1 (value-of exp1 env)))
+                 (value-of body
+                           (extend-env-mutable var (newref v1) env))))
       
       (proc-exp (var body)
                 (proc-val (procedure var body env)))
       
       (call-exp (rator rand)
+        (begin
+        ;(printf "Evaluating call-exp {rator: ~s rand:~s}\n" rator rand)
                 (let ((proc (expval->proc (value-of rator env)))
                       (arg (value-of rand env)))
                   (apply-procedure proc arg)))
+      )
       
       (letrec-exp (p-names b-vars p-bodies letrec-body)
+          (begin
+          ;(printf "Evaluating call-exp {p-names: ~s b-vars: ~s p-bodies: ~s letrec-body: ~s}\n"
+           ;p-names b-vars p-bodies letrec-body)
                   (value-of letrec-body
-                            (extend-env-rec* p-names b-vars p-bodies env)))
+                            (extend-env-rec* p-names b-vars p-bodies env))))
       
       (begin-exp (exp1 exps)
                  (letrec 
@@ -94,7 +118,9 @@
                    (value-of-begins exp1 exps)))
       
       (assign-exp (var exp1)
+      
                   (begin
+                    ;(printf "Evaluating assign-exp {var ~s exp1 ~s}\n" var exp1)
                     (setref!
                      (apply-env env var)
                      (value-of exp1 env))
@@ -120,7 +146,7 @@
     (cases proc proc1
       (procedure (var body saved-env)
                  (let ((r (newref arg)))
-                   (let ((new-env (extend-env var r saved-env)))
+                   (let ((new-env (extend-env-mutable var r saved-env)))
                      (when (instrument-let)
                        (eopl:printf
                         "entering body of proc ~s with env =~%"
