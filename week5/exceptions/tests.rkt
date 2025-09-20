@@ -4,6 +4,7 @@
 (require "data-structures.rkt")  ; for expval constructors
 (require "lang.rkt")             ; for scan&parse
 (require "interp.rkt")           ; for value-of-program
+(require racket/base)
 
 ;; run : String -> ExpVal
 (define run
@@ -94,16 +95,6 @@
  (nested-procs2 "let f = proc(x) proc (y) -(x,y) in ((f -(10,5)) 6)"
                 -1)
  
- ;;       (y-combinator-1 "
- ;; let fix =  proc (f)
- ;;             let d = proc (x) proc (z) ((f (x x)) z)
- ;;             in proc (n) ((f (d d)) n)
- ;; in let
- ;;     t4m = proc (f) proc(x) if zero?(x) then 0 else -((f -(x,1)),-4)
- ;; in let times4 = (fix t4m)
- ;;    in (times4 3)" 12)
- 
- 
  ;; make sure that the test and both arms get evaluated
  ;; properly. 
  (if-eval-test-true "if zero?(-(11,11)) then 3 else 4" 3)
@@ -130,11 +121,6 @@
   "let m = -5 
  in letrec f(x) = if zero?(x) then 0 else -((f -(x,1)), m) in (f 4)"
   20)
- 
- ;      (fact-of-6  "letrec
- ;  fact(x) = if zero?(x) then 1 else *(x, (fact sub1(x)))
- ;in (fact 6)" 
- ;                  720)
  
  (HO-nested-letrecs
   "letrec even(odd)  = proc(x) if zero?(x) then 1 else (odd -(x,1))

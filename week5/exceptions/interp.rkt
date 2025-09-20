@@ -3,6 +3,7 @@
 (require "lang.rkt")
 (require "data-structures.rkt")
 (require "environments.rkt")
+(require racket/base)
 
 (provide value-of-program value-of/k)
 (provide trace-apply-procedure)
@@ -17,32 +18,40 @@
   (diff1-cont                       ; cont[(- [] (value-of e2 env))]
    (exp2 expression?)
    (env environment?)
-   (cont continuation?))
+   (cont continuation?)
+   (expn-cont continuation?))
   (diff2-cont                         ; cont[(- val1 [])]
    (val1 expval?)
-   (cont continuation?))
+   (cont continuation?)
+   (expn-cont continuation?))
   (unop-arg-cont
    (unop unary-op?)
-   (cont continuation?))
+   (cont continuation?)
+   (expn-cont continuation?))
   (if-test-cont
    (exp2 expression?)
    (exp3 expression?)
    (env environment?)
-   (cont continuation?))
+   (cont continuation?)
+   (expn-cont continuation?))
   (rator-cont            ; cont[(apply-proc [] (value-of rand env))]
    (rand expression?)
    (env environment?)
-   (cont continuation?))
+   (cont continuation?)
+   (expn-cont continuation?))
   (rand-cont                          ; cont[(apply-proc val1 [])]
    (val1 expval?)
-   (cont continuation?))
+   (cont continuation?)
+   (expn-cont continuation?))
   (try-cont
    (var symbol?)
    (handler-exp expression?)
    (env environment?)
-   (cont continuation?))
+   (cont continuation?)
+   (expn-cont continuation?))
   (raise1-cont
-   (saved-cont continuation?))
+   (saved-cont continuation?)
+   (expn-cont continuation?))
   )
 
 ;;;;;;;;;;;;;;;; the interpreter ;;;;;;;;;;;;;;;;
@@ -52,12 +61,15 @@
   (lambda (pgm)
     (cases program pgm
       (a-program (body)
-                 (value-of/k body (init-env) (end-cont))))))
+                 (value-of/k body (init-env) (end-cont) (end-cont))))))
 
 ;; value-of/k : Exp * Env * Cont -> FinalAnswer
 ;; Page: 173
 (define value-of/k
-  (lambda (exp env cont)
+  (lambda (exp env cont expn-cont)
+  (begin
+  ;(printf "value-of/k cont: ~s\n" cont)
+  ;(printf "value-of/k expn-cont: ~s\n" expn-cont)
     (cases expression exp
       
       (const-exp (num) (apply-cont cont (num-val num)))
@@ -70,15 +82,15 @@
       
       (diff-exp (exp1 exp2)
                 (value-of/k exp1 env
-                            (diff1-cont exp2 env cont)))
+                            (diff1-cont exp2 env cont expn-cont) expn-cont))
       
       (unop-exp (unop exp1)
                 (value-of/k exp1 env
-                            (unop-arg-cont unop cont)))
+                            (unop-arg-cont unop cont expn-cont) expn-cont))
       
       (if-exp (exp1 exp2 exp3)
               (value-of/k exp1 env
-                          (if-test-cont exp2 exp3 env cont)))
+                          (if-test-cont exp2 exp3 env cont expn-cont) expn-cont))
       
       (proc-exp (var body)
                 (apply-cont cont
@@ -87,7 +99,7 @@
       
       (call-exp (rator rand)
                 (value-of/k rator env
-                            (rator-cont rand env cont)))
+                            (rator-cont rand env cont expn-cont) expn-cont))
       
       ;; make let a macro, because I'm too lazy to add the extra
       ;; continuation
@@ -95,83 +107,91 @@
                (value-of/k
                 (call-exp (proc-exp var body) exp1)
                 env
-                cont))
+                cont expn-cont))
       
       (letrec-exp (p-name b-var p-body letrec-body)
                   (value-of/k
                    letrec-body
                    (extend-env-rec p-name b-var p-body env)
-                   cont))
+                   cont expn-cont))
       
       (try-exp (exp1 var handler-exp)
-               (value-of/k exp1 env
-                           (try-cont var handler-exp env cont)))
+        (value-of/k exp1 env cont
+          (try-cont var handler-exp env cont expn-cont)));move the try onto the exception-continuation
       
       (raise-exp (exp1)
-                 (value-of/k exp1 env
-                             (raise1-cont cont))))))
+        (value-of/k exp1 env
+          (raise1-cont cont expn-cont) expn-cont));raise remains int he normal flow
+)))
+)
 
 ;; apply-cont : continuation * expval -> final-expval
 
 (define apply-cont
   (lambda (cont val)
+  (begin
+  ;(printf "apply-cont: cont: ~s\n" cont)
     (cases continuation cont
       (end-cont () val)
-      (diff1-cont (exp2 saved-env saved-cont)
-                  (value-of/k exp2 saved-env (diff2-cont val saved-cont)))
-      (diff2-cont (val1 saved-cont)
+      (diff1-cont (exp2 saved-env saved-cont saved-expn-cont)
+                  (value-of/k exp2 saved-env (diff2-cont val saved-cont saved-expn-cont) saved-expn-cont))
+      (diff2-cont (val1 saved-cont saved-expn-cont)
                   (let ((n1 (expval->num val1))
                         (n2 (expval->num val)))
                     (apply-cont saved-cont
                                 (num-val (- n1 n2)))))
-      (unop-arg-cont (unop cont)
+      (unop-arg-cont (unop cont saved-expn-cont)
                      (apply-cont cont
                                  (apply-unop unop val)))
-      (if-test-cont (exp2 exp3 env cont)
+      (if-test-cont (exp2 exp3 env cont saved-expn-cont)
                     (if (expval->bool val)
-                        (value-of/k exp2 env cont)
-                        (value-of/k exp3 env cont)))
-      (rator-cont (rand saved-env saved-cont)
+                        (value-of/k exp2 env cont saved-expn-cont)
+                        (value-of/k exp3 env cont saved-expn-cont)))
+      (rator-cont (rand saved-env saved-cont saved-expn-cont)
                   (value-of/k rand saved-env
-                              (rand-cont val saved-cont)))
-      (rand-cont (val1 saved-cont)
+                              (rand-cont val saved-cont saved-expn-cont) saved-expn-cont))
+      (rand-cont (val1 saved-cont saved-expn-cont)
                  (let ((proc (expval->proc val1)))
-                   (apply-procedure proc val saved-cont)))
+                   (apply-procedure proc val saved-cont saved-expn-cont)))
       ;; the body of the try finished normally-- don't evaluate the handler
-      (try-cont (var handler-exp saved-env saved-cont)
+      (try-cont (var handler-exp saved-env saved-cont saved-expn-cont)
                 (apply-cont saved-cont val))
       ;; val is the value of the argument to raise
-      (raise1-cont (saved-cont)
+      (raise1-cont (saved-cont saved-expn-cont)
                    ;; we put the short argument first to make the trace more readable.
-                   (apply-handler val saved-cont))
+                   (apply-handler val saved-expn-cont)) ;will this be where we need to swap?
       )))
+)
 
 ;; apply-handler : ExpVal * Cont -> FinalAnswer
 (define apply-handler
   (lambda (val cont)
     (cases continuation cont
       ;; interesting cases
-      (try-cont (var handler-exp saved-env saved-cont)
-                (value-of/k handler-exp
-                            (extend-env var val saved-env)
-                            saved-cont))
+      (try-cont (var handler-exp saved-env saved-cont saved-expn-cont)
+        (begin
+          ;(printf "apply-handler.try-cont {val: ~s handler-exp: ~s s-cont: ~s}\n"
+          ;    val handler-exp saved-cont)
+          (value-of/k handler-exp 
+                      (extend-env var val saved-env)
+                      saved-cont saved-expn-cont)))
       
       (end-cont () (eopl:error 'apply-handler "uncaught exception!"))
       
       ;; otherwise, just look for the handler...
-      (diff1-cont (exp2 saved-env saved-cont)
+      (diff1-cont (exp2 saved-env saved-cont saved-expn-cont)
                   (apply-handler val saved-cont))
-      (diff2-cont (val1 saved-cont)
-                  (apply-handler val saved-cont))
-      (if-test-cont (exp2 exp3 env saved-cont)
+      (diff2-cont (val1 saved-cont saved-expn-cont)
+                  (apply-handler val saved-cont ))
+      (if-test-cont (exp2 exp3 env saved-cont saved-expn-cont)
                     (apply-handler val saved-cont))
-      (unop-arg-cont (unop saved-cont)
+      (unop-arg-cont (unop saved-cont saved-expn-cont)
                      (apply-handler val saved-cont))
-      (rator-cont (rand saved-env saved-cont)
+      (rator-cont (rand saved-env saved-cont saved-expn-cont)
                   (apply-handler val saved-cont))
-      (rand-cont (val1 saved-cont)
+      (rand-cont (val1 saved-cont saved-expn-cont)
                  (apply-handler val saved-cont))
-      (raise1-cont (cont)
+      (raise1-cont (cont saved-expn-cont)
                    (apply-handler val cont))
       )))
 
@@ -179,12 +199,12 @@
 ;; apply-procedure : procedure * expval * cont -> final-expval
 
 (define apply-procedure
-  (lambda (proc1 arg cont)
+  (lambda (proc1 arg cont expn-cont)
     (cases proc proc1
       (procedure (var body saved-env)
                  (value-of/k body
                              (extend-env var arg saved-env)
-                             cont)))))
+                             cont expn-cont)))))
 
 
 (define apply-unop
