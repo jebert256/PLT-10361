@@ -4,34 +4,53 @@
 (require "data-structures.rkt")
 (require "substitutions.rkt")
 (require "unifier.rkt")
+(require racket)
 
 (provide type-of-program type-of)
+
+;;;;;;;;;;;;;;;; The Type Checker ;;;;;;;;;;;;;;;;
+
+;; we'll be thinking of the type of an expression as pair consisting
+;; of a type (possibly with some type variables in it) and a
+;; substitution that tells us how to interpret those type variables.
+
+;; Answer = Type * Subst
+;; type-of: Exp * Tenv * Subst  -> Answer
 
 (define-datatype answer answer?
   (an-answer (type type?)
              (subst substitution?)))
 
+
+(define-datatype type-scheme type-scheme?
+  (mono (ty type?))
+  (poly (vars (list-of number?)) (ty type?)))
+
+;;;;;;;;;;;;;;;; type environments ;;;;;;;;;;;;;;;;
 (define-datatype type-environment type-environment?
   (empty-tenv-record)
   (extended-tenv-record (sym symbol?)
-                        (type type?)
+                        (scheme type-scheme?)
                         (tenv type-environment?)))
 
-(define empty-tenv empty-tenv-record)
+(define empty-tenv (empty-tenv-record))
 (define extend-tenv extended-tenv-record)
+
 
 (define apply-tenv
   (lambda (tenv sym)
     (cases type-environment tenv
       (empty-tenv-record () (eopl:error 'apply-tenv "Unbound variable ~s" sym))
-      (extended-tenv-record (sym1 val1 old-env)
-        (if (eqv? sym sym1) val1 (apply-tenv old-env sym))))))
+      (extended-tenv-record (sym1 scheme1 old-env)
+        (if (eqv? sym sym1) scheme1 (apply-tenv old-env sym))))))
+
 
 (define init-tenv
   (lambda ()
-    (extend-tenv 'x (int-type)
-      (extend-tenv 'v (int-type)
-        (extend-tenv 'i (int-type) empty-tenv)))))
+    (extend-tenv 'x (mono (int-type))
+      (extend-tenv 'v (mono (int-type))
+        (extend-tenv 'i (mono (int-type)) empty-tenv)))))
+
 
 (define new-tvar
   (let ((id 0))
@@ -39,11 +58,68 @@
       (set! id (+ id 1))
       (tvar-type id))))
 
-(define otype->type
-  (lambda (otype)
-    (cases optional-type otype
-      (no-type () (new-tvar))
-      (a-type (ty) ty))))
+
+(define free-type-vars
+  (lambda (ty)
+
+    (cases type ty
+      (int-type () '())
+      (bool-type () '())
+      (tvar-type (id) (list id))
+      (proc-type (arg result)
+        (append (free-type-vars arg) (free-type-vars result))))))
+
+(define free-type-vars-in-scheme
+  (lambda (scheme)
+    (cases type-scheme scheme
+      (mono (ty) (free-type-vars ty))
+      (poly (vars ty)
+        (let ((ftv (free-type-vars ty)))
+          ;; remove quantified vars from ftv
+          (filter (lambda (id) (not (member id vars))) ftv))))))
+
+(define free-type-vars-env
+  (lambda (tenv)
+    (cases type-environment tenv
+      (empty-tenv-record () '())
+      (extended-tenv-record (sym scheme old-env)
+        (append (free-type-vars-in-scheme scheme)
+                (free-type-vars-env old-env))))))
+
+
+(define generalize
+  (lambda (ty tenv)
+    (let* ((tyvars (free-type-vars ty))
+           (envvars (free-type-vars-env tenv))
+           (genvars (filter (lambda (v) (not (member v envvars))) tyvars)))
+      (if (null? genvars)
+          (mono ty)
+          (poly genvars ty)))))
+
+
+(define instantiate
+  (lambda (scheme)
+    (cases type-scheme scheme
+      (mono (ty) ty)
+      (poly (vars ty)
+        (let ((pairs
+               (map (lambda (old-id)
+                      (cons old-id (new-tvar)))
+                    vars)))
+          (let ((subst-entries
+                 (map (lambda (pr)
+                        (list (tvar-type (car pr)) (cdr pr)))
+                      pairs)))
+            (let ((ty-after
+                   (foldl (lambda (entry acc-ty)
+                            (let ((from (car entry))
+                                  (to   (cadr entry)))
+                              ;; create one-entry subst and apply
+                              (apply-subst-to-type acc-ty (extend-subst from to))))
+                          ty
+                          subst-entries)))
+              ty)))))))
+
 
 (define gen-eq
   (lambda (exp tenv eqns)
@@ -77,15 +153,23 @@
           (list then-ty
                 (append eqns3 (list (list cond-ty (bool-type) cond-exp)
                                     (list then-ty else-ty exp))))))
-      (var-exp (v) (list (apply-tenv tenv v) eqns))
+      (var-exp (v)
+        ;; instantiate the scheme returned by apply-tenv
+        (let ((scheme (apply-tenv tenv v)))
+          (list (instantiate scheme) eqns)))
       (let-exp (v rhs body)
         (let* ((res1 (gen-eq rhs tenv eqns))
                (rhs-ty (car res1))
-               (eqns1 (cadr res1)))
-          (gen-eq body (extend-tenv v rhs-ty tenv) eqns1)))
+               (eqns1 (cadr res1))
+               ;; generalize rhs-ty w.r.t current tenv
+               (rhs-scheme (generalize rhs-ty tenv))
+               (tenv2 (extend-tenv v rhs-scheme tenv)))
+          (gen-eq body tenv2 eqns1)))
       (proc-exp (v otype body)
         (let* ((arg-type (otype->type otype))
-               (res1 (gen-eq body (extend-tenv v arg-type tenv) eqns))
+               ;; store as mono scheme for the argument
+               (tenv2 (extend-tenv v (mono arg-type) tenv))
+               (res1 (gen-eq body tenv2 eqns))
                (body-ty (car res1))
                (eqns1 (cadr res1)))
           (list (proc-type arg-type body-ty) eqns1)))
@@ -98,20 +182,20 @@
                (rand-ty (car res2))
                (eqns2 (cadr res2)))
           (list result-type
-                (append eqns2 (list (list rator-ty (proc-type rand-ty result-type) exp)))
-      )))
+                (append eqns2 (list (list rator-ty (proc-type rand-ty result-type) exp))))))
       (letrec-exp (proc-result-otype proc-name bvar proc-arg-otype proc-body letrec-body)
         (let* ((proc-arg-ty (otype->type proc-arg-otype))
                (proc-result-ty (otype->type proc-result-otype))
-               (tenv-letrec (extend-tenv proc-name (proc-type proc-arg-ty proc-result-ty) tenv))
-               (tenv-body (extend-tenv bvar proc-arg-ty tenv-letrec))
+               ;; put the procedure's type into env (mono) so recursive calls see same signature
+               (tenv-letrec (extend-tenv proc-name (mono (proc-type proc-arg-ty proc-result-ty)) tenv))
+               (tenv-body (extend-tenv bvar (mono proc-arg-ty) tenv-letrec))
                (res1 (gen-eq proc-body tenv-body eqns))
                (body-ty (car res1))
                (eqns1 (cadr res1)))
           (gen-eq letrec-body tenv-letrec
-                              (append eqns1 (list (list body-ty proc-result-ty proc-body)))
-          )))
+                              (append eqns1 (list (list body-ty proc-result-ty proc-body))))))
 )))
+
 
 (define solve-eq
   (lambda (eqns)
@@ -127,6 +211,27 @@
                       (loop (cdr eqns) new-subst))))))
       (loop eqns (empty-subst)))))
 
+(define poly-id->tvar
+  (let ((counter 0)
+        (map (make-hash)))
+    (lambda (sym)
+      (or (hash-ref map sym #f)
+          (let ((n counter))
+            (set! counter (+ counter 1))
+            (hash-set! map sym n)
+            n)))))
+
+
+(define otype->type
+  (lambda (otype)
+    (cases optional-type otype
+      (no-type ()
+        (new-tvar));?
+      (a-type (ty)
+        ty) ;type
+      (poly-type (id)
+        (tvar-type (poly-id->tvar id))));?[a-zA-Z]+
+))
 
 (define type-of
   (lambda (exp tenv subst)

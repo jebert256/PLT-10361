@@ -324,5 +324,28 @@ in fact"
  (polymorphic-type-2 
   "letrec ? f (x : ?) = (f x) in proc (n : ?) (f -(n,1))"
   (int -> tvar01))
- 
- )
+)
+
+;;new tests
+(check-type
+
+
+(poly-letrec-1 
+   "letrec ?a f(x : ?a) = x in f" 
+   (tvar0 -> tvar0))
+  
+(poly-proc-1 
+  "proc (x : ?a) x" 
+  (tvar0 -> tvar0))
+
+(poly-nested-1 
+  "proc (x : ?a) proc (y : ?b) x" 
+  (tvar0 -> (tvar1 -> tvar0)))
+
+ (pgm7b-?fooBar "
+    letrec 
+      ?foo fact (x : ?bar) = if zero?(x) then 1 else -(x, (fact -(x,1)))
+    in fact"
+    (int -> int))
+
+)

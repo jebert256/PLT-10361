@@ -2,48 +2,53 @@
 
 (provide (all-defined-out))
 
+
 ;;;;;;;;;;;;;;;; grammatical specification ;;;;;;;;;;;;;;;;
 
 (define the-lexical-spec
   '((whitespace (whitespace) skip)
     (comment ("%" (arbno (not #\newline))) skip)
     (identifier
-     (letter (arbno (or letter digit "_" "-" "?")))
-     symbol)
+      (letter (arbno (or letter digit "_" "-" "?")))
+      symbol)
+    (poly-id
+      ("?"(arbno letter))
+      symbol)
     (number (digit (arbno digit)) number)
     (number ("-" digit (arbno digit)) number)
     ))
 
 (define the-grammar
   '((program (expression) a-program)
-    
+
     (expression (number) const-exp)
     (expression
      ("-" "(" expression "," expression ")")
      diff-exp)
-    
+
     (expression
      ("zero?" "(" expression ")")
      zero?-exp)
-    
+
     (expression
      ("if" expression "then" expression "else" expression)
      if-exp)
-    
+
     (expression (identifier) var-exp)
-    
+
     (expression
      ("let" identifier "=" expression "in" expression)
      let-exp)   
-    
+
+    ;; added optional-type
     (expression
      ("proc" "("  identifier ":" optional-type ")" expression)
      proc-exp)
-    
+
     (expression
      ("(" expression expression ")")
      call-exp)
-    
+
     (expression
      ("letrec"
       optional-type identifier "(" identifier ":" optional-type ")"
@@ -57,6 +62,10 @@
     (optional-type
      (type)
      a-type)
+
+    (optional-type
+     (poly-id)
+     poly-type)
     
     (type
      ("int")
@@ -73,7 +82,6 @@
     (type
      ("%tvar-type" number)
      tvar-type)
-    
     ))
 
 ;;;;;;;;;;;;;;;; sllgen boilerplate ;;;;;;;;;;;;;;;;
@@ -88,8 +96,6 @@
 
 (define just-scan
   (sllgen:make-string-scanner the-lexical-spec the-grammar))
-
-
 
 ;;;;;;;;;;;;;;;; syntactic tests and observers ;;;;;;;;;;;;;;;;
 
@@ -111,7 +117,6 @@
     (cases type ty
       (tvar-type (serial-number) #t)
       (else #f))))
-
 
 (define proc-type->arg-type
   (lambda (ty)
